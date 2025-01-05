@@ -1,6 +1,5 @@
 package com.yupi.usercenter.cotroller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yupi.usercenter.common.BaseResponse;
 import com.yupi.usercenter.common.Result;
 import com.yupi.usercenter.model.domain.CaptchaVo;
@@ -12,7 +11,6 @@ import io.minio.errors.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -31,7 +29,8 @@ public class FileUploadController {
 
     /**
      * 上传图片到minio
-     *
+     *用户中心
+     * 前端todo
      * @param file
      * @return
      * @throws ServerException
@@ -44,6 +43,7 @@ public class FileUploadController {
      * @throws XmlParserException
      * @throws InternalException
      */
+    //todo 前端上传图片
     @PostMapping("/upload")
     public BaseResponse<String> upload(@RequestParam MultipartFile file) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
 
@@ -51,6 +51,11 @@ public class FileUploadController {
         return Result.ok(url);
     }
 
+    /**
+     * 获取验证码
+     *用户中心
+     * @return
+     */
     @GetMapping("/login/captcha")
     public BaseResponse<CaptchaVo> getCaptcha() {
         CaptchaVo captcha = service.getCaptcha();
@@ -62,7 +67,6 @@ public class FileUploadController {
 
     /**
      * 根据前端传来的id和url保存到数据库中
-     *
      * @param saveMinioRequest
      * @return
      */

@@ -1,6 +1,6 @@
 package com.yupi.usercenter.cotroller;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.usercenter.common.BaseResponse;
 import com.yupi.usercenter.common.ErrorCode;
 import com.yupi.usercenter.common.Result;
@@ -11,16 +11,15 @@ import com.yupi.usercenter.model.UserRegisterRequest;
 import com.yupi.usercenter.model.domain.User;
 import com.yupi.usercenter.service.UserService;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
-
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import static com.yupi.usercenter.contant.UserConstant.ADMIN_ROLE;
 import static com.yupi.usercenter.contant.UserConstant.USER_LOGIN_STATE;
 
 @RestController
@@ -30,10 +29,12 @@ import static com.yupi.usercenter.contant.UserConstant.USER_LOGIN_STATE;
 public class UserController {
     @Resource
     private UserService userService;
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 用户注册
-     *
+     *用户中心
      * @param userRegisterRequest
      * @return
      */
@@ -56,7 +57,7 @@ public class UserController {
 
     /**
      * 用户登录
-     *
+     *用户中心
      * @param userLoginRequest
      * @return
      */
@@ -95,6 +96,11 @@ public class UserController {
         return Result.ok(user);
     }
 
+    /**
+     * 本来用户中心的接口，伙伴匹配用了
+     * @param request
+     * @return
+     */
     @PostMapping("/logOut")
     public BaseResponse<Boolean> userLogout( HttpServletRequest request) {
         if (request == null) {
@@ -106,7 +112,7 @@ public class UserController {
     }
 
     /**
-     *
+     *伙伴匹配和用户中心都有
      * 查看当前用户
      * @param request
      * @return
@@ -126,6 +132,7 @@ public class UserController {
     }
 
     /**
+     * 用户中心
      * 根据用户名查询
      */
     @GetMapping("/search")
@@ -149,18 +156,27 @@ public class UserController {
      * 伙伴匹配首页推荐
      */
     @GetMapping("/recommend")
-    public BaseResponse<List<User>> recommendUsers() {
+    public BaseResponse<Page<User>> recommendUsers(long pageNum, long pageSize,HttpServletRequest request) {
+        User logUser = userService.getLogUser(request);
+        String redisKey=String.format("user:recommend:%s",logUser.getId());
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        //先查缓存
+        Page<User> userPage =(Page<User>) valueOperations.get(redisKey);
+        if(userPage!=null){
+            return Result.ok(userPage);
+        }
+        //查数据库
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        List<User> userList = userService.list(wrapper);
-        List<User> list = userList.stream().map(user -> {
-            user.setUserPassword(null);
-            return userService.getSafetyUser(user);
-        }).collect(Collectors.toList());
-        return Result.ok(list);
+        userPage = userService.page(new Page<>(pageNum, pageSize),wrapper);
+
+        //写缓存
+        valueOperations.set(redisKey,userPage,300000, TimeUnit.MILLISECONDS);
+            return Result.ok(userPage);
 
     }
 
     /**
+     * 用户中心
      * 根据id删除用户
      */
     @PostMapping("/delete")
@@ -171,13 +187,13 @@ public class UserController {
         if (id <= 0) {
             throw new WxException(ErrorCode.NULL_ERROR);
         }
-
         boolean b = userService.removeById(id);
         return Result.ok(b);
 
     }
 
     /**
+     *伙伴匹配
      * 根据id和前端传过来的某个要更改的值更新用户
      * @param user
      * @param request
@@ -198,6 +214,7 @@ public class UserController {
 
 
     /**
+     * 伙伴匹配
      * 根据标签搜索用户
      * @param tagNameList
      * @return
